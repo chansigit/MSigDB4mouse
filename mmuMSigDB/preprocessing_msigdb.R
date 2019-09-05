@@ -1,6 +1,7 @@
-setwd("E:/code/mmuMSigDB")
+rm(list = ls())
 
 
+# ===================== Read gene set files =======================
 
 #Author: Minghui Wang
 read.gmt=function(filename){
@@ -28,24 +29,15 @@ write.gmt=function(obj,filename){
   return(invisible())
 }
 
-
-
 c2.cp <- read.gmt(filename = "./msigdb_v7/c2.cp.v7.0.symbols.gmt")
 c5.bp <- read.gmt(filename = "./msigdb_v7/c5.bp.v7.0.symbols.gmt")
 c7.all<- read.gmt(filename = "./msigdb_v7/c7.all.v7.0.symbols.gmt")
-length(c2.cp$genesets)
+#length(c2.cp$genesets)
 
-msigdb.gene.symbols <- unique(
-                c(unique(unlist(c2.cp$genesets)),
-                  unique(unlist(c5.bp$genesets)),
-                  unique(unlist(c7.all$genesets))) )
-msigdb.gene.symbols
 
-#=======================================================================
+#====================== Build Homolog Conversion Table =====================
 
 library("biomaRt")
-human = useMart("ensembl", dataset = "hsapiens_gene_ensembl")
-mouse = useMart("ensembl", dataset = "mmusculus_gene_ensembl")
 
 human = useMart("ensembl", dataset = "hsapiens_gene_ensembl")
 mouse = useMart("ensembl", dataset = "mmusculus_gene_ensembl")
@@ -55,7 +47,91 @@ human2mouse = getLDS(attributes = c("hgnc_symbol","ensembl_gene_id","entrezgene_
 
 
 
-#=======================================================================
-gene.symbol.missed <-msigdb.gene.symbols[! msigdb.gene.symbols %in% human2mouse$HGNC.symbol]
+# ====================== Conversion Quality Check ==========================
+#msigdb.gene.symbols <- unique(
+#  c(unique(unlist(c2.cp$genesets)),
+#    unique(unlist(c5.bp$genesets)),
+#    unique(unlist(c7.all$genesets))) )
+#msigdb.gene.symbols
 
-which(human2mouse$MGI.symbol, human2mouse$MGI.symbol==NA)
+#gene.symbol.missed <-msigdb.gene.symbols[! msigdb.gene.symbols %in% human2mouse$HGNC.symbol]
+#which(human2mouse$MGI.symbol, human2mouse$MGI.symbol==NA)
+
+
+
+# ====================== Conversion for C2.CP ==========================
+gs <-c2.cp
+
+library(progress)
+pb <- progress_bar$new(total = length(gs$genesets))
+for (gsid in 1:length(gs$genesets)){
+    
+    gvec<-gs$genesets[[gsid]]
+    # go through all genes in one gene set
+    for (gene in gvec){
+      gene.rowsel      <-  human2mouse$HGNC.symbol==gene
+      symbol.converted <-( human2mouse[gene.rowsel, ]$MGI.symbol ) [1]  # if multiple hits exist, use first one. (just in case)
+      if ( symbol.converted!="" & !is.na(symbol.converted) ){ # if conversion found
+          gvec[gvec==gene] <- symbol.converted
+      }else{ # or removed the unmatched item
+          gvec<-gvec[gvec!=gene]
+      }
+    }
+    gs$genesets[[gsid]] <- gvec
+    pb$tick()
+}
+
+write.gmt(obj = gs, filename = "c2.cp.mmu.v7.0.symbols.gmt")
+rm(gs)
+
+
+# ====================== Conversion for C5.BP ==========================
+gs <-c5.bp
+
+library(progress)
+pb <- progress_bar$new(total = length(gs$genesets))
+for (gsid in 1:length(gs$genesets)){
+  
+  gvec<-gs$genesets[[gsid]]
+  # go through all genes in one gene set
+  for (gene in gvec){
+    gene.rowsel      <-  human2mouse$HGNC.symbol==gene
+    symbol.converted <-( human2mouse[gene.rowsel, ]$MGI.symbol ) [1]  # if multiple hits exist, use first one. (just in case)
+    if ( symbol.converted!="" & !is.na(symbol.converted) ){ # if conversion found
+      gvec[gvec==gene] <- symbol.converted
+    }else{ # or removed the unmatched item
+      gvec<-gvec[gvec!=gene]
+    }
+  }
+  gs$genesets[[gsid]] <- gvec
+  pb$tick()
+}
+
+write.gmt(obj = gs, filename = "c5.bp.mmu.v7.0.symbols.gmt")
+rm(gs)
+
+# ====================== Conversion for C7.ALL ==========================
+gs <-c7.all
+
+library(progress)
+pb <- progress_bar$new(total = length(gs$genesets))
+for (gsid in 1:length(gs$genesets)){
+  
+  gvec<-gs$genesets[[gsid]]
+  # go through all genes in one gene set
+  for (gene in gvec){
+    gene.rowsel      <-  human2mouse$HGNC.symbol==gene
+    symbol.converted <-( human2mouse[gene.rowsel, ]$MGI.symbol ) [1]  # if multiple hits exist, use first one. (just in case)
+    if ( symbol.converted!="" & !is.na(symbol.converted) ){ # if conversion found
+      gvec[gvec==gene] <- symbol.converted
+    }else{ # or removed the unmatched item
+      gvec<-gvec[gvec!=gene]
+    }
+  }
+  gs$genesets[[gsid]] <- gvec
+  pb$tick()
+}
+
+write.gmt(obj = gs, filename = "c7.all.mmu.v7.0.symbols.gmt")
+rm(gs)
+
